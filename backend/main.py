@@ -1,9 +1,10 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import mysql.connector
+from datetime import timedelta
 
 app = Flask(__name__)
-CORS(app, origins='*')
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 def get_db_connection():
     return mysql.connector.connect(
@@ -13,6 +14,11 @@ def get_db_connection():
         database='flight_tracking'
     )
 
+def serialize_value(val):
+    if isinstance(val, timedelta):
+        return str(val)  # or val.total_seconds() if you prefer numeric duration
+    return val
+
 def create_get_all_route(table_name):
     def get_all_records():
         conn = get_db_connection()
@@ -21,7 +27,10 @@ def create_get_all_route(table_name):
             cursor.execute(f"SELECT * FROM {table_name};")
             rows = cursor.fetchall()
             column_names = [desc[0] for desc in cursor.description]
-            results = [dict(zip(column_names, row)) for row in rows]
+            results = [
+                dict(zip(column_names, [serialize_value(v) for v in row]))
+                for row in rows
+            ]
             return jsonify(results)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -53,6 +62,16 @@ tables = [
     'pilot_licenses'
 ]
 
+# List of all views from your SQL file
+views = [
+    'flights_in_the_air',
+    'flights_on_the_ground',
+    'people_in_the_air',
+    'people_on_the_ground',
+    'route_summary',
+    'alternative_airports'
+]
+
 # Stored procedure names from your SQL file
 procedures = [
     'add_airplane',
@@ -70,9 +89,9 @@ procedures = [
     'simulation_cycle'
 ]
 
-# Dynamically create GET routes for each table
-for table in tables:
-    create_get_all_route(table)
+# Create GET routes for both tables and views
+for name in tables + views:
+    create_get_all_route(name)
 
 # Create POST endpoints for stored procedures
 @app.route('/api/procedure/<procedure_name>', methods=['POST'])
@@ -88,16 +107,18 @@ def call_stored_procedure(procedure_name):
         cursor.callproc(procedure_name, params)
         conn.commit()
 
-        # Collect result sets if any
         results = []
         for result in cursor.stored_results():
             column_names = [desc[0] for desc in result.description]
             rows = result.fetchall()
-            results.append([dict(zip(column_names, row)) for row in rows])
+            results.append([
+                dict(zip(column_names, [serialize_value(v) for v in row]))
+                for row in rows
+            ])
 
         return jsonify({"result": results})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e), "procedure": procedure_name, "params": params}), 500
     finally:
         cursor.close()
         conn.close()
