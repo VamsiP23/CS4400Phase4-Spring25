@@ -10,12 +10,20 @@ const VIEWS = [
   'alternative_airports'
 ];
 
-function ViewSwitcher() {
-  const [selectedView, setSelectedView] = useState(VIEWS[0]);
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+const PROCEDURES = {
+  'add_airplane': ['ip_airlineID', 'ip_tail_num', 'ip_seat_capacity', 'ip_speed', 'ip_locationID', 'ip_plane_type', 'ip_maintenanced', 'ip_model', 'ip_neo'],
+  'add_airport': ['ip_airportID', 'ip_airport_name', 'ip_city', 'ip_state', 'ip_country', 'ip_locationID'],
+  'add_person': ['ip_personID', 'ip_first_name', 'ip_last_name', 'ip_locationID', 'ip_taxID', 'ip_experience', 'ip_miles', 'ip_funds'],
+  // Add other procedures with their parameters here
+};
 
-  const isWideView = selectedView === 'people_in_the_air';
+function ViewSwitcher() {
+  const [selectedOption, setSelectedOption] = useState(VIEWS[0]);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [params, setParams] = useState({});
+  const [isProcedure, setIsProcedure] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const fetchViewData = async (viewName) => {
     setLoading(true);
@@ -28,72 +36,131 @@ function ViewSwitcher() {
     setLoading(false);
   };
 
+  const executeProcedure = async () => {
+    setLoading(true);
+    setSuccess(false);
+    try {
+      await axios.post(
+        `http://localhost:8080/api/procedure/${selectedOption}`,
+        { params: Object.values(params) }
+      );
+      setSuccess(true);
+      // Clear form after successful execution
+      setParams({});
+    } catch (error) {
+      console.error("Procedure error:", error);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    fetchViewData(selectedView);
-  }, [selectedView]);
+    if (VIEWS.includes(selectedOption)) {
+      setIsProcedure(false);
+      fetchViewData(selectedOption);
+    } else {
+      setIsProcedure(true);
+    }
+  }, [selectedOption]);
 
   return (
     <div className="container mx-auto px-2 py-4">
       <h1 className="text-lg font-semibold mb-4 text-center">
-        Flight Tracking Views
+        Flight Tracking System
       </h1>
 
       <div className="flex justify-center mb-4">
         <select
-          value={selectedView}
-          onChange={e => setSelectedView(e.target.value)}
-          className="text-sm p-1 border rounded"
+          value={selectedOption}
+          onChange={(e) => setSelectedOption(e.target.value)}
+          className="text-sm p-2 border rounded"
         >
-          {VIEWS.map(view => (
-            <option key={view} value={view}>
-              {view.replaceAll('_', ' ')}
-            </option>
-          ))}
+          <optgroup label="Views">
+            {VIEWS.map(view => (
+              <option key={view} value={view}>
+                {view.replaceAll('_', ' ')}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Procedures">
+            {Object.keys(PROCEDURES).map(proc => (
+              <option key={proc} value={proc}>
+                {proc.replaceAll('_', ' ')}
+              </option>
+            ))}
+          </optgroup>
         </select>
       </div>
 
-      {loading ? (
-        <p className="text-center text-sm">Loading…</p>
-      ) : data.length > 0 ? (
-        <div
-          className="w-full"
-          style={isWideView ? { zoom: 0.9, transformOrigin: 'top left' } : {}}
-        >
-          <table className="table-fixed w-full border-collapse border border-gray-300 text-xs">
-            <thead>
-              <tr>
-                {Object.keys(data[0]).map(col => (
-                  <th
-                    key={col}
-                    className="border px-2 py-1 bg-gray-100 font-medium break-all whitespace-normal"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((row, i) => (
-                <tr
-                  key={i}
-                  className="odd:bg-white even:bg-gray-50 hover:bg-gray-100"
-                >
-                  {Object.values(row).map((val, j) => (
-                    <td
-                      key={j}
-                      className="border px-2 py-1 break-all whitespace-normal"
-                      title={val}
-                    >
-                      {val?.toString()}
-                    </td>
+      {isProcedure && (
+        <div className="mb-6 p-4 bg-gray-50 rounded border">
+          <h2 className="font-medium mb-3">
+            Execute: {selectedOption.replaceAll('_', ' ')}
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            {PROCEDURES[selectedOption]?.map(param => (
+              <div key={param}>
+                <label className="block text-sm mb-1">
+                  {param.replaceAll('_', ' ')}:
+                </label>
+                <input
+                  type="text"
+                  value={params[param] || ''}
+                  onChange={(e) => setParams({...params, [param]: e.target.value})}
+                  className="w-full p-2 border rounded text-sm"
+                  placeholder={param}
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={executeProcedure}
+            disabled={loading}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+          >
+            {loading ? 'Executing...' : 'Execute Procedure'}
+          </button>
+
+          {success && (
+            <p className="mt-2 text-green-600 text-sm">
+              Procedure executed successfully! Check MySQL Workbench for changes.
+            </p>
+          )}
+        </div>
+      )}
+
+      {!isProcedure && (
+        loading ? (
+          <p className="text-center">Loading data...</p>
+        ) : data.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border">
+              <thead>
+                <tr className="bg-gray-100">
+                  {Object.keys(data[0]).map(col => (
+                    <th key={col} className="p-2 border text-left">
+                      {col}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-center text-sm">No data available.</p>
+              </thead>
+              <tbody>
+                {data.map((row, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    {Object.values(row).map((val, j) => (
+                      <td key={j} className="p-2 border text-sm">
+                        {String(val)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-center">No data available</p>
+        )
       )}
     </div>
   );

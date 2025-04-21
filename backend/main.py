@@ -10,7 +10,8 @@ def get_db_connection():
     return mysql.connector.connect(
         host='localhost',
         user='root',
-        password='Theilliad123@',
+        #change the password to the one you use for your local
+        password='CHANGEME',
         database='flight_tracking'
     )
 
