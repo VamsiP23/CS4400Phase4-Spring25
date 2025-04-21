@@ -21,6 +21,9 @@ const PROCEDURES = {
   'passengers_board': ['ip_flightID'],
   'passengers_disembark': ['ip_flightID'],
   'assign_pilot': ['ip_flightID', 'ip_personID'],
+  'recycle_crew': ['ip_flightID'],
+  'retire_flight': ['ip_flightID'],
+  'simulation_cycle': []
   // Add other procedures with their parameters here
 };
 
