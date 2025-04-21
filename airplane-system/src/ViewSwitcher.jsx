@@ -14,6 +14,9 @@ const PROCEDURES = {
   'add_airplane': ['ip_airlineID', 'ip_tail_num', 'ip_seat_capacity', 'ip_speed', 'ip_locationID', 'ip_plane_type', 'ip_maintenanced', 'ip_model', 'ip_neo'],
   'add_airport': ['ip_airportID', 'ip_airport_name', 'ip_city', 'ip_state', 'ip_country', 'ip_locationID'],
   'add_person': ['ip_personID', 'ip_first_name', 'ip_last_name', 'ip_locationID', 'ip_taxID', 'ip_experience', 'ip_miles', 'ip_funds'],
+  'passengers_board': ['ip_flightID'],
+  'passengers_disembark': ['ip_flightID'],
+  'assign_pilot': ['ip_flightID', 'ip_personID'],
   // Add other procedures with their parameters here
 };
 
