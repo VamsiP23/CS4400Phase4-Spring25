@@ -11,7 +11,7 @@ def get_db_connection():
         host='localhost',
         user='root',
         #change the password to the one you use for your local
-        password='',
+        password='mac826xAv',
         database='flight_tracking'
     )
 
@@ -108,7 +108,11 @@ def call_stored_procedure(procedure_name):
             
             if param.strip().lower() == 'null' or param.strip() == '':
                 processed_params.append(None)
-            else:
+            elif param.strip().lower() == 'true':
+                processed_params.append(1)
+            elif param.strip().lower() == 'false':
+                processed_params.append(0)
+            else: 
                 processed_params.append(param)
         else:
            
