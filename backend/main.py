@@ -105,7 +105,7 @@ def call_stored_procedure(procedure_name):
     processed_params = []
     for param in params:
         if isinstance(param, str):
-            # Handle 'null' (case-insensitive) or empty strings
+            
             if param.strip().lower() == 'null' or param.strip() == '':
                 processed_params.append(None)
             else:
