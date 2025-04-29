@@ -11,13 +11,13 @@ def get_db_connection():
         host='localhost',
         user='root',
         #change the password to the one you use for your local
-        password='CHANGEME',
+        password='Theilliad123@',
         database='flight_tracking'
     )
 
 def serialize_value(val):
     if isinstance(val, timedelta):
-        return str(val)  # or val.total_seconds() if you prefer numeric duration
+        return str(val)
     return val
 
 def create_get_all_route(table_name):

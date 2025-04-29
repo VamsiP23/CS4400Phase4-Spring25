@@ -10,67 +10,125 @@ const VIEWS = [
   'alternative_airports'
 ];
 
+const TABLES = [
+  'airline',
+  'location',
+  'airplane',
+  'airport',
+  'person',
+  'passenger',
+  'passenger_vacations',
+  'leg',
+  'route',
+  'route_path',
+  'flight',
+  'pilot',
+  'pilot_licenses'
+];
+
 const PROCEDURES = {
-  'add_airplane': ['ip_airlineID', 'ip_tail_num', 'ip_seat_capacity', 'ip_speed', 'ip_locationID', 'ip_plane_type', 'ip_maintenanced', 'ip_model', 'ip_neo'],
-  'add_airport': ['ip_airportID', 'ip_airport_name', 'ip_city', 'ip_state', 'ip_country', 'ip_locationID'],
-  'add_person': ['ip_personID', 'ip_first_name', 'ip_last_name', 'ip_locationID', 'ip_taxID', 'ip_experience', 'ip_miles', 'ip_funds'],
-  'grant_or_revoke_pilot_license' : ['ip_personID', 'ip_license'],
-  'offer_flight' : ['ip_flightID', 'ip_routeID', 'ip_support_airline', 'ip_support_tail', 'ip_progress', 'ip_next_time', 'ip_cost'],
-  'flight_landing' : ['ip_flightID'],
-  'flight_takeoff' : ['ip_flightID'],
-  'passengers_board': ['ip_flightID'],
-  'passengers_disembark': ['ip_flightID'],
-  'assign_pilot': ['ip_flightID', 'ip_personID'],
-  'recycle_crew': ['ip_flightID'],
-  'retire_flight': ['ip_flightID'],
-  'simulation_cycle': []
-  // Add other procedures with their parameters here
+  add_airplane: ['ip_airlineID', 'ip_tail_num', 'ip_seat_capacity', 'ip_speed', 'ip_locationID', 'ip_plane_type', 'ip_maintenanced', 'ip_model', 'ip_neo'],
+  add_airport: ['ip_airportID', 'ip_airport_name', 'ip_city', 'ip_state', 'ip_country', 'ip_locationID'],
+  add_person: ['ip_personID', 'ip_first_name', 'ip_last_name', 'ip_locationID', 'ip_taxID', 'ip_experience', 'ip_miles', 'ip_funds'],
+  grant_or_revoke_pilot_license: ['ip_personID', 'ip_license'],
+  offer_flight: ['ip_flightID', 'ip_routeID', 'ip_support_airline', 'ip_support_tail', 'ip_progress', 'ip_next_time', 'ip_cost'],
+  flight_landing: ['ip_flightID'],
+  flight_takeoff: ['ip_flightID'],
+  passengers_board: ['ip_flightID'],
+  passengers_disembark: ['ip_flightID'],
+  assign_pilot: ['ip_flightID', 'ip_personID'],
+  recycle_crew: ['ip_flightID'],
+  retire_flight: ['ip_flightID'],
+  simulation_cycle: []
 };
 
 function ViewSwitcher() {
-  const [selectedOption, setSelectedOption] = useState(VIEWS[0]);
+  const [selected, setSelected] = useState(VIEWS[0]);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [params, setParams] = useState({});
-  const [isProcedure, setIsProcedure] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const fetchViewData = async (viewName) => {
-    setLoading(true);
-    try {
-      const res = await axios.get(`http://localhost:8080/api/${viewName}`);
-      setData(res.data);
-    } catch {
-      setData([]);
+  const isProcedure = Object.hasOwnProperty.call(PROCEDURES, selected);
+  const isTable = TABLES.includes(selected);
+  const isView = VIEWS.includes(selected);
+  const isWideView = selected === 'people_in_the_air';
+
+  const fetchData = async () => {
+    if (!isProcedure) {
+      setLoading(true);
+      try {
+        const res = await axios.get(`http://localhost:8080/api/${selected}`);
+        setData(res.data);
+      } catch (err) {
+        console.error(err);
+        setData([]);
+      }
+      setLoading(false);
     }
-    setLoading(false);
   };
+
+  useEffect(() => {
+    setData([]);
+    setSuccess(false);
+    setParams({});
+    if (!isProcedure) fetchData();
+  }, [selected]);
 
   const executeProcedure = async () => {
     setLoading(true);
     setSuccess(false);
     try {
       await axios.post(
-        `http://localhost:8080/api/procedure/${selectedOption}`,
+        `http://localhost:8080/api/procedure/${selected}`,
         { params: Object.values(params) }
       );
       setSuccess(true);
-      // Clear form after successful execution
       setParams({});
-    } catch (error) {
-      console.error("Procedure error:", error);
+      fetchData();
+    } catch (err) {
+      console.error('Procedure error:', err);
     }
     setLoading(false);
   };
 
-  useEffect(() => {
-    if (VIEWS.includes(selectedOption)) {
-      setIsProcedure(false);
-      fetchViewData(selectedOption);
-    } else {
-      setIsProcedure(true);
-    }
-  }, [selectedOption]);
+  const renderTable = () => (
+    <div
+      className="w-full"
+      style={isWideView ? { zoom: 0.9, transformOrigin: 'top left' } : {}}
+    >
+      <table className="table-fixed w-full border-collapse border border-gray-300 text-xs">
+        <thead>
+          <tr>
+            {data.length > 0 &&
+              Object.keys(data[0]).map(col => (
+                <th
+                  key={col}
+                  className="border px-2 py-1 bg-gray-100 font-medium break-all whitespace-normal"
+                >
+                  {col}
+                </th>
+              ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, i) => (
+            <tr key={i} className="odd:bg-white even:bg-gray-50 hover:bg-gray-100">
+              {Object.values(row).map((val, j) => (
+                <td
+                  key={j}
+                  className="border px-2 py-1 break-all whitespace-normal"
+                  title={val}
+                >
+                  {String(val)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="container mx-auto px-2 py-4">
@@ -80,14 +138,21 @@ function ViewSwitcher() {
 
       <div className="flex justify-center mb-4">
         <select
-          value={selectedOption}
-          onChange={(e) => setSelectedOption(e.target.value)}
+          value={selected}
+          onChange={e => setSelected(e.target.value)}
           className="text-sm p-2 border rounded"
         >
           <optgroup label="Views">
             {VIEWS.map(view => (
               <option key={view} value={view}>
                 {view.replaceAll('_', ' ')}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Tables">
+            {TABLES.map(table => (
+              <option key={table} value={table}>
+                {table.replaceAll('_', ' ')}
               </option>
             ))}
           </optgroup>
@@ -101,14 +166,14 @@ function ViewSwitcher() {
         </select>
       </div>
 
-      {isProcedure && (
+      {isProcedure ? (
         <div className="mb-6 p-4 bg-gray-50 rounded border">
           <h2 className="font-medium mb-3">
-            Execute: {selectedOption.replaceAll('_', ' ')}
+            Execute: {selected.replaceAll('_', ' ')}
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            {PROCEDURES[selectedOption]?.map(param => (
+            {PROCEDURES[selected].map(param => (
               <div key={param}>
                 <label className="block text-sm mb-1">
                   {param.replaceAll('_', ' ')}:
@@ -116,7 +181,7 @@ function ViewSwitcher() {
                 <input
                   type="text"
                   value={params[param] || ''}
-                  onChange={(e) => setParams({...params, [param]: e.target.value})}
+                  onChange={e => setParams({ ...params, [param]: e.target.value })}
                   className="w-full p-2 border rounded text-sm"
                   placeholder={param}
                 />
@@ -134,43 +199,16 @@ function ViewSwitcher() {
 
           {success && (
             <p className="mt-2 text-green-600 text-sm">
-              Procedure executed successfully! Check MySQL Workbench for changes.
+              Procedure executed successfully!
             </p>
           )}
         </div>
-      )}
-
-      {!isProcedure && (
-        loading ? (
-          <p className="text-center">Loading data...</p>
-        ) : data.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border">
-              <thead>
-                <tr className="bg-gray-100">
-                  {Object.keys(data[0]).map(col => (
-                    <th key={col} className="p-2 border text-left">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    {Object.values(row).map((val, j) => (
-                      <td key={j} className="p-2 border text-sm">
-                        {String(val)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-center">No data available</p>
-        )
+      ) : loading ? (
+        <p className="text-center text-sm">Loading data...</p>
+      ) : data.length > 0 ? (
+        renderTable()
+      ) : (
+        <p className="text-center text-sm">No data available</p>
       )}
     </div>
   );
