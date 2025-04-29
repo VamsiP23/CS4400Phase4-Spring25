@@ -11,7 +11,7 @@ def get_db_connection():
         host='localhost',
         user='root',
         #change the password to the one you use for your local
-        password='Theilliad123@',
+        password='',
         database='flight_tracking'
     )
 
@@ -102,10 +102,22 @@ def call_stored_procedure(procedure_name):
 
     params = request.json.get('params', [])
 
+    processed_params = []
+    for param in params:
+        if isinstance(param, str):
+            # Handle 'null' (case-insensitive) or empty strings
+            if param.strip().lower() == 'null' or param.strip() == '':
+                processed_params.append(None)
+            else:
+                processed_params.append(param)
+        else:
+           
+            processed_params.append(param)
+
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.callproc(procedure_name, params)
+        cursor.callproc(procedure_name, processed_params)
         conn.commit()
 
         results = []
