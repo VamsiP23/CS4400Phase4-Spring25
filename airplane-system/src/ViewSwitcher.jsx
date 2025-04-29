@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const VIEWS = [
@@ -7,7 +7,7 @@ const VIEWS = [
   'people_in_the_air',
   'people_on_the_ground',
   'route_summary',
-  'alternative_airports'
+  'alternative_airports',
 ];
 
 const TABLES = [
@@ -23,7 +23,7 @@ const TABLES = [
   'route_path',
   'flight',
   'pilot',
-  'pilot_licenses'
+  'pilot_licenses',
 ];
 
 const PROCEDURES = {
@@ -39,87 +39,78 @@ const PROCEDURES = {
   assign_pilot: ['ip_flightID', 'ip_personID'],
   recycle_crew: ['ip_flightID'],
   retire_flight: ['ip_flightID'],
-  simulation_cycle: []
+  simulation_cycle: [],
 };
 
-function ViewSwitcher() {
-  const [selected, setSelected] = useState(VIEWS[0]);
+const ViewSwitcher = () => {
+  const [selectedView, setSelectedView] = useState(VIEWS[0]);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [params, setParams] = useState({});
   const [success, setSuccess] = useState(false);
 
-  const isProcedure = Object.hasOwnProperty.call(PROCEDURES, selected);
-  const isTable = TABLES.includes(selected);
-  const isView = VIEWS.includes(selected);
-  const isWideView = selected === 'people_in_the_air';
+  const isProcedure = PROCEDURES.hasOwnProperty(selectedView);
+  const isWideView = selectedView === 'people_in_the_air';
 
-  const fetchData = async () => {
-    if (!isProcedure) {
-      setLoading(true);
-      try {
-        const res = await axios.get(`http://localhost:8080/api/${selected}`);
-        setData(res.data);
-      } catch (err) {
-        console.error(err);
-        setData([]);
-      }
+  const fetchData = useCallback(async () => {
+    if (isProcedure) return;
+    setLoading(true);
+    try {
+      const { data: fetchedData } = await axios.get(`http://localhost:8080/api/${selectedView}`);
+      setData(fetchedData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setData([]);
+    } finally {
       setLoading(false);
     }
-  };
+  }, [selectedView, isProcedure]);
 
   useEffect(() => {
     setData([]);
     setSuccess(false);
     setParams({});
-    if (!isProcedure) fetchData();
-  }, [selected]);
+    fetchData();
+  }, [selectedView, fetchData]);
 
-  const executeProcedure = async () => {
+  const handleExecuteProcedure = async () => {
     setLoading(true);
     setSuccess(false);
     try {
-      await axios.post(
-        `http://localhost:8080/api/procedure/${selected}`,
-        { params: Object.values(params) }
-      );
+      await axios.post(`http://localhost:8080/api/procedure/${selectedView}`, {
+        params: Object.values(params),
+      });
       setSuccess(true);
       setParams({});
-      fetchData();
-    } catch (err) {
-      console.error('Procedure error:', err);
+      await fetchData();
+    } catch (error) {
+      console.error('Error executing procedure:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleParamChange = (key, value) => {
+    setParams(prev => ({ ...prev, [key]: value }));
   };
 
   const renderTable = () => (
-    <div
-      className="w-full"
-      style={isWideView ? { zoom: 0.9, transformOrigin: 'top left' } : {}}
-    >
-      <table className="table-fixed w-full border-collapse border border-gray-300 text-xs">
+    <div className="w-full" style={isWideView ? { zoom: 0.9, transformOrigin: 'top left' } : {}}>
+      <table className="w-full border-collapse border border-gray-300 text-xs">
         <thead>
           <tr>
-            {data.length > 0 &&
-              Object.keys(data[0]).map(col => (
-                <th
-                  key={col}
-                  className="border px-2 py-1 bg-gray-100 font-medium break-all whitespace-normal"
-                >
-                  {col}
-                </th>
-              ))}
+            {data.length > 0 && Object.keys(data[0]).map(col => (
+              <th key={col} className="border px-2 py-1 bg-gray-100 font-medium break-all whitespace-normal">
+                {col}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {data.map((row, i) => (
             <tr key={i} className="odd:bg-white even:bg-gray-50 hover:bg-gray-100">
               {Object.values(row).map((val, j) => (
-                <td
-                  key={j}
-                  className="border px-2 py-1 break-all whitespace-normal"
-                  title={val}
-                >
+                <td key={j} className="border px-2 py-1 break-all whitespace-normal" title={val}>
                   {String(val)}
                 </td>
               ))}
@@ -132,35 +123,27 @@ function ViewSwitcher() {
 
   return (
     <div className="container mx-auto px-2 py-4">
-      <h1 className="text-lg font-semibold mb-4 text-center">
-        Flight Tracking System
-      </h1>
+      <h1 className="text-lg font-semibold mb-4 text-center">Flight Tracking System</h1>
 
       <div className="flex justify-center mb-4">
         <select
-          value={selected}
-          onChange={e => setSelected(e.target.value)}
+          value={selectedView}
+          onChange={(e) => setSelectedView(e.target.value)}
           className="text-sm p-2 border rounded"
         >
           <optgroup label="Views">
             {VIEWS.map(view => (
-              <option key={view} value={view}>
-                {view.replaceAll('_', ' ')}
-              </option>
+              <option key={view} value={view}>{view.replaceAll('_', ' ')}</option>
             ))}
           </optgroup>
           <optgroup label="Tables">
             {TABLES.map(table => (
-              <option key={table} value={table}>
-                {table.replaceAll('_', ' ')}
-              </option>
+              <option key={table} value={table}>{table.replaceAll('_', ' ')}</option>
             ))}
           </optgroup>
           <optgroup label="Procedures">
             {Object.keys(PROCEDURES).map(proc => (
-              <option key={proc} value={proc}>
-                {proc.replaceAll('_', ' ')}
-              </option>
+              <option key={proc} value={proc}>{proc.replaceAll('_', ' ')}</option>
             ))}
           </optgroup>
         </select>
@@ -168,20 +151,16 @@ function ViewSwitcher() {
 
       {isProcedure ? (
         <div className="mb-6 p-4 bg-gray-50 rounded border">
-          <h2 className="font-medium mb-3">
-            Execute: {selected.replaceAll('_', ' ')}
-          </h2>
+          <h2 className="font-medium mb-3">Execute: {selectedView.replaceAll('_', ' ')}</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            {PROCEDURES[selected].map(param => (
+            {PROCEDURES[selectedView].map(param => (
               <div key={param}>
-                <label className="block text-sm mb-1">
-                  {param.replaceAll('_', ' ')}:
-                </label>
+                <label className="block text-sm mb-1">{param.replaceAll('_', ' ')}:</label>
                 <input
                   type="text"
                   value={params[param] || ''}
-                  onChange={e => setParams({ ...params, [param]: e.target.value })}
+                  onChange={(e) => handleParamChange(param, e.target.value)}
                   className="w-full p-2 border rounded text-sm"
                   placeholder={param}
                 />
@@ -190,18 +169,14 @@ function ViewSwitcher() {
           </div>
 
           <button
-            onClick={executeProcedure}
+            onClick={handleExecuteProcedure}
             disabled={loading}
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
           >
             {loading ? 'Executing...' : 'Execute Procedure'}
           </button>
 
-          {success && (
-            <p className="mt-2 text-green-600 text-sm">
-              Procedure executed successfully!
-            </p>
-          )}
+          {success && <p className="mt-2 text-green-600 text-sm">Procedure executed successfully!</p>}
         </div>
       ) : loading ? (
         <p className="text-center text-sm">Loading data...</p>
@@ -212,6 +187,6 @@ function ViewSwitcher() {
       )}
     </div>
   );
-}
+};
 
 export default ViewSwitcher;
